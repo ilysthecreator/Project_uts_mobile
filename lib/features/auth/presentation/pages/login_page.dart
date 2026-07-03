@@ -191,9 +191,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 controller: _usernameController,
                                 style: GoogleFonts.plusJakartaSans(fontSize: 14),
                                 decoration: InputDecoration(
-                                  hintText: 'Username',
+                                  hintText: 'Email atau Username',
                                   prefixIcon: Icon(
-                                    Icons.person_outline_rounded,
+                                    Icons.alternate_email_rounded,
                                     color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
                                     size: 20,
                                   ),

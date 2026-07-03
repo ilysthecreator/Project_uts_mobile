@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/ticket_provider.dart';
+import 'ticket_tracking_page.dart';
 
 class TicketDetailPage extends ConsumerWidget {
   final String ticketId;
@@ -85,7 +86,23 @@ class TicketDetailPage extends ConsumerWidget {
                             ),
                           ),
                           const Spacer(),
-                          const SizedBox(width: 48),
+                          user?.role == 'admin'
+                               ? IconButton(
+                                   icon: Container(
+                                     padding: const EdgeInsets.all(8),
+                                     decoration: BoxDecoration(
+                                       color: AppColors.error.withOpacity(0.2),
+                                       borderRadius: BorderRadius.circular(12),
+                                     ),
+                                     child: const Icon(
+                                       Icons.delete_forever_rounded,
+                                       color: Colors.white,
+                                       size: 18,
+                                     ),
+                                   ),
+                                   onPressed: () => _confirmDelete(context, ref, ticketId),
+                                 )
+                               : const SizedBox(width: 48),
                         ],
                       ),
                     ),
@@ -145,7 +162,7 @@ class TicketDetailPage extends ConsumerWidget {
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: _buildAdminActions(context, ref, ticketId, isDark)
+                child: _buildAdminActions(context, ref, ticket, isDark)
                     .animate()
                     .slideY(begin: 1, delay: 500.ms),
               ),
@@ -162,17 +179,22 @@ class TicketDetailPage extends ConsumerWidget {
     IconData statusIcon;
 
     switch (ticket.status) {
-      case 'pending':
+      case 'open':
         statusColor = AppColors.statusPending;
         statusBgColor = AppColors.statusPendingBg;
         statusIcon = Icons.schedule_rounded;
         break;
-      case 'proses':
+      case 'assign':
+        statusColor = Colors.blue;
+        statusBgColor = Colors.blue.withOpacity(0.08);
+        statusIcon = Icons.assignment_ind_rounded;
+        break;
+      case 'on progress':
         statusColor = AppColors.statusProcess;
         statusBgColor = AppColors.statusProcessBg;
         statusIcon = Icons.sync_rounded;
         break;
-      case 'selesai':
+      case 'close':
         statusColor = AppColors.statusDone;
         statusBgColor = AppColors.statusDoneBg;
         statusIcon = Icons.check_circle_rounded;
@@ -297,6 +319,37 @@ class TicketDetailPage extends ConsumerWidget {
               fontWeight: FontWeight.w800,
               color: isDark ? Colors.white : AppColors.textPrimary,
               height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => TicketTrackingPage(ticketId: ticket.id),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.history_rounded, size: 18),
+              label: Text(
+                'Lacak Perjalanan Tiket',
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                backgroundColor: AppColors.primary.withOpacity(isDark ? 0.12 : 0.08),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
           ),
         ],
@@ -469,38 +522,71 @@ class TicketDetailPage extends ConsumerWidget {
           const SizedBox(height: 14),
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.file(
-              File(ticket.imagePath!),
-              height: 200,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                height: 120,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceElevatedLight,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.broken_image_outlined,
-                      color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
-                      size: 32,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Gambar tidak ditemukan',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
-                        fontSize: 12,
+            child: ticket.imagePath!.startsWith('http')
+                ? Image.network(
+                    ticket.imagePath!,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 120,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceElevatedLight,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.broken_image_outlined,
+                            color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
+                            size: 32,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Gagal memuat gambar',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                  )
+                : Image.file(
+                    File(ticket.imagePath!),
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 120,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceElevatedLight,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.broken_image_outlined,
+                            color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
+                            size: 32,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Gagal memuat gambar',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -700,8 +786,135 @@ class TicketDetailPage extends ConsumerWidget {
     );
   }
 
-  // ─── Admin Actions (Bottom) ─────────────────────────
-  Widget _buildAdminActions(BuildContext context, WidgetRef ref, String id, bool isDark) {
+  // ─── Admin/Helpdesk Actions (Bottom) ────────────────
+  Widget _buildAdminActions(BuildContext context, WidgetRef ref, dynamic ticket, bool isDark) {
+    final user = ref.read(authNotifierProvider).user;
+    if (user == null) return const SizedBox.shrink();
+
+    Widget? actionWidget;
+
+    if (user.role == 'admin') {
+      if (ticket.status == 'open') {
+        // Tombol Terima Tiket
+        actionWidget = Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.primaryGradient,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              final success = await ref
+                  .read(ticketListNotifierProvider.notifier)
+                  .updateStatus(ticket.id, 'assign');
+              if (success) {
+                ref.invalidate(ticketDetailProvider(ticket.id));
+              }
+            },
+            icon: const Icon(Icons.check_circle_rounded, size: 18, color: Colors.white),
+            label: Text(
+              'Terima Tiket',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              minimumSize: const Size(double.infinity, 52),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        );
+      } else if (ticket.status == 'assign') {
+        // Tombol Tugaskan Petugas
+        actionWidget = OutlinedButton.icon(
+          onPressed: () => _showAssignDialog(context, ref, ticket.id),
+          icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+          label: Text(
+            'Tugaskan Petugas',
+            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: BorderSide(
+              color: isDark ? AppColors.borderDark : AppColors.primary.withOpacity(0.3),
+            ),
+            minimumSize: const Size(double.infinity, 52),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        );
+      } else if (ticket.status == 'on progress') {
+        // Tombol Selesai Pekerjaan
+        actionWidget = Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.successGradient,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              final success = await ref
+                  .read(ticketListNotifierProvider.notifier)
+                  .updateStatus(ticket.id, 'close');
+              if (success) {
+                ref.invalidate(ticketDetailProvider(ticket.id));
+              }
+            },
+            icon: const Icon(Icons.task_alt_rounded, size: 18, color: Colors.white),
+            label: Text(
+              'Selesai Pekerjaan',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              minimumSize: const Size(double.infinity, 52),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        );
+      }
+    } else if (user.role == 'helpdesk') {
+      if (ticket.status == 'on progress' && ticket.assigneeId == user.id) {
+        // Tombol Selesai Pekerjaan untuk Helpdesk
+        actionWidget = Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.successGradient,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              final success = await ref
+                  .read(ticketListNotifierProvider.notifier)
+                  .updateStatus(ticket.id, 'close');
+              if (success) {
+                ref.invalidate(ticketDetailProvider(ticket.id));
+              }
+            },
+            icon: const Icon(Icons.task_alt_rounded, size: 18, color: Colors.white),
+            label: Text(
+              'Selesai Pekerjaan',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              minimumSize: const Size(double.infinity, 52),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        );
+      }
+    }
+
+    if (actionWidget == null) return const SizedBox.shrink();
+
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
@@ -717,50 +930,7 @@ class TicketDetailPage extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _showAssignDialog(context, ref, id),
-                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-                  label: Text(
-                    'Tugaskan',
-                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: BorderSide(
-                      color: isDark ? AppColors.borderDark : AppColors.primary.withOpacity(0.3),
-                    ),
-                    minimumSize: const Size(0, 52),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showStatusDialog(context, ref, id),
-                    icon: const Icon(Icons.check_circle_rounded, size: 18, color: Colors.white),
-                    label: Text(
-                      'Ubah Status',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      minimumSize: const Size(0, 52),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                ),
-              ),
+              Expanded(child: actionWidget),
             ],
           ),
         ),
@@ -857,7 +1027,7 @@ class TicketDetailPage extends ConsumerWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 onTap: () {
                   ref.read(ticketListNotifierProvider.notifier).updateStatus(
-                    id, 'proses',
+                    id, 'on progress',
                     assigneeId: r['id'],
                     assigneeName: r['name'],
                   );
@@ -873,85 +1043,82 @@ class TicketDetailPage extends ConsumerWidget {
     );
   }
 
-  void _showStatusDialog(BuildContext context, WidgetRef ref, String id) {
+  void _confirmDelete(BuildContext context, WidgetRef ref, String id) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final statuses = [
-      {'key': 'proses', 'label': 'DIPROSES', 'color': AppColors.statusProcess, 'icon': Icons.sync_rounded},
-      {'key': 'selesai', 'label': 'SELESAI', 'color': AppColors.statusDone, 'icon': Icons.check_circle_rounded},
-      {'key': 'batal', 'label': 'DIBATALKAN', 'color': AppColors.statusCancel, 'icon': Icons.cancel_rounded},
-    ];
-
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      backgroundColor: isDark ? AppColors.cardDark : Colors.white,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.borderDark : AppColors.borderLight,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Perbarui Status',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ...statuses.map((s) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? (s['color'] as Color).withOpacity(0.08)
-                    : (s['color'] as Color).withOpacity(0.05),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: (s['color'] as Color).withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(s['icon'] as IconData, color: s['color'] as Color, size: 20),
-                ),
-                title: Text(
-                  s['label'] as String,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: s['color'] as Color,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                onTap: () {
-                  ref.read(ticketListNotifierProvider.notifier).updateStatus(id, s['key'] as String);
-                  Navigator.pop(context);
-                  ref.invalidate(ticketDetailProvider(id));
-                },
-              ),
-            )),
-            const SizedBox(height: 12),
-          ],
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
         ),
+        backgroundColor: isDark ? AppColors.cardDark : Colors.white,
+        title: Text(
+          'Hapus Tiket',
+          style: GoogleFonts.plusJakartaSans(
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : AppColors.textPrimary,
+          ),
+        ),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus tiket ini secara permanen?',
+          style: GoogleFonts.plusJakartaSans(
+            color: isDark ? AppColors.textDarkSecondary : AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Batal',
+              style: GoogleFonts.plusJakartaSans(
+                color: isDark ? AppColors.textDarkSecondary : AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx); // Tutup dialog konfirmasi
+              final success = await ref.read(ticketListNotifierProvider.notifier).deleteTicket(id);
+              if (context.mounted) {
+                if (success) {
+                  Navigator.pop(context); // Kembali ke halaman daftar tiket
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Tiket berhasil dihapus!',
+                        style: GoogleFonts.plusJakartaSans(),
+                      ),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Gagal menghapus tiket',
+                        style: GoogleFonts.plusJakartaSans(),
+                      ),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Hapus',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }

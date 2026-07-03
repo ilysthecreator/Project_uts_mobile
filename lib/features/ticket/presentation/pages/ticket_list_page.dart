@@ -191,9 +191,10 @@ class TicketListPage extends ConsumerWidget {
   Widget _buildFilterBar(WidgetRef ref, String currentFilter, bool isDark) {
     final filters = [
       {'key': 'semua', 'label': 'Semua', 'icon': Icons.all_inclusive_rounded},
-      {'key': 'pending', 'label': 'Pending', 'icon': Icons.schedule_rounded},
-      {'key': 'proses', 'label': 'Proses', 'icon': Icons.sync_rounded},
-      {'key': 'selesai', 'label': 'Selesai', 'icon': Icons.check_circle_outline_rounded},
+      {'key': 'open', 'label': 'Open', 'icon': Icons.schedule_rounded},
+      {'key': 'assign', 'label': 'Assigned', 'icon': Icons.assignment_ind_rounded},
+      {'key': 'on progress', 'label': 'On Progress', 'icon': Icons.sync_rounded},
+      {'key': 'close', 'label': 'Closed', 'icon': Icons.check_circle_outline_rounded},
     ];
 
     return Container(
@@ -265,17 +266,22 @@ class TicketListPage extends ConsumerWidget {
     IconData statusIcon;
 
     switch (ticket.status) {
-      case 'pending':
+      case 'open':
         statusColor = AppColors.statusPending;
         statusBgColor = AppColors.statusPendingBg;
         statusIcon = Icons.schedule_rounded;
         break;
-      case 'proses':
+      case 'assign':
+        statusColor = Colors.blue;
+        statusBgColor = Colors.blue.withOpacity(0.08);
+        statusIcon = Icons.assignment_ind_rounded;
+        break;
+      case 'on progress':
         statusColor = AppColors.statusProcess;
         statusBgColor = AppColors.statusProcessBg;
         statusIcon = Icons.sync_rounded;
         break;
-      case 'selesai':
+      case 'close':
         statusColor = AppColors.statusDone;
         statusBgColor = AppColors.statusDoneBg;
         statusIcon = Icons.check_circle_rounded;

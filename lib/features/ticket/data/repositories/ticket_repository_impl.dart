@@ -3,10 +3,10 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/ticket.dart';
 import '../../domain/repositories/ticket_repository.dart';
-import '../datasources/ticket_mock_datasource.dart';
+import '../datasources/ticket_remote_datasource.dart';
 
 class TicketRepositoryImpl implements TicketRepository {
-  final TicketMockDataSource remoteDataSource;
+  final TicketRemoteDataSource remoteDataSource;
 
   TicketRepositoryImpl({required this.remoteDataSource});
 
@@ -55,6 +55,16 @@ class TicketRepositoryImpl implements TicketRepository {
     try {
       final comment = await remoteDataSource.addComment(ticketId, userId, userName, message);
       return Right(comment);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteTicket(String id) async {
+    try {
+      await remoteDataSource.deleteTicket(id);
+      return const Right(null);
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }

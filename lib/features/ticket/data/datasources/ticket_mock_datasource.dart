@@ -39,28 +39,41 @@ class TicketMockDataSource {
   }
 
   List<TicketModel> _getDefaultMocks() {
+    final now = DateTime.now();
     return [
       TicketModel(
         id: 'mock-ticket-1',
         title: 'Aplikasi Error saat Login',
         description: 'Ketika saya mencoba login, selalu muncul error 500.',
-        status: 'pending',
+        status: 'open',
         priority: 'high',
         creatorId: '2',
-        creatorName: 'John Doe',
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+        creatorName: 'Fadhil Ilyas',
+        createdAt: now.subtract(const Duration(hours: 2)),
         comments: [],
+        history: [
+          TicketHistoryModel(
+            id: 'h-mock-1-1',
+            ticketId: 'mock-ticket-1',
+            userId: '2',
+            userName: 'Fadhil Ilyas',
+            action: 'dibuat',
+            message: 'Tiket berhasil dibuat oleh Fadhil Ilyas',
+            createdAt: now.subtract(const Duration(hours: 2)),
+          ),
+        ],
       ),
       TicketModel(
         id: 'mock-ticket-2',
         title: 'Lupa Password tidak mengirim email',
         description: 'Saya sudah request reset password dari kemarin.',
-        status: 'proses',
+        status: 'on progress',
         priority: 'medium',
         creatorId: '2',
-        creatorName: 'John Doe',
+        creatorName: 'Fadhil Ilyas',
         assigneeId: '1',
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
+        assigneeName: 'Super Admin',
+        createdAt: now.subtract(const Duration(days: 1)),
         comments: [
           TicketCommentModel(
             id: 'c1',
@@ -68,7 +81,45 @@ class TicketMockDataSource {
             userId: '1',
             userName: 'Super Admin',
             message: 'Halo, sedang kami cek masalah pada server SMTP.',
-            createdAt: DateTime.now().subtract(const Duration(hours: 10)),
+            createdAt: now.subtract(const Duration(hours: 10)),
+          ),
+        ],
+        history: [
+          TicketHistoryModel(
+            id: 'h-mock-2-1',
+            ticketId: 'mock-ticket-2',
+            userId: '2',
+            userName: 'Fadhil Ilyas',
+            action: 'dibuat',
+            message: 'Tiket berhasil dibuat oleh Fadhil Ilyas',
+            createdAt: now.subtract(const Duration(days: 1)),
+          ),
+          TicketHistoryModel(
+            id: 'h-mock-2-2',
+            ticketId: 'mock-ticket-2',
+            userId: '1',
+            userName: 'Super Admin',
+            action: 'ditugaskan',
+            message: 'Tiket ditugaskan kepada Super Admin',
+            createdAt: now.subtract(const Duration(hours: 12)),
+          ),
+          TicketHistoryModel(
+            id: 'h-mock-2-3',
+            ticketId: 'mock-ticket-2',
+            userId: '1',
+            userName: 'Super Admin',
+            action: 'status_diubah',
+            message: 'Status tiket diubah menjadi ON PROGRESS oleh Super Admin',
+            createdAt: now.subtract(const Duration(hours: 12)),
+          ),
+          TicketHistoryModel(
+            id: 'h-mock-2-4',
+            ticketId: 'mock-ticket-2',
+            userId: '1',
+            userName: 'Super Admin',
+            action: 'komentar_ditambahkan',
+            message: 'Super Admin menambahkan komentar baru',
+            createdAt: now.subtract(const Duration(hours: 10)),
           ),
         ],
       ),
@@ -91,17 +142,28 @@ class TicketMockDataSource {
   Future<TicketModel> createTicket(String title, String description, String priority, String creatorId, String creatorName, String? imagePath) async {
     await _loadFromStorage();
     await Future.delayed(const Duration(seconds: 1));
-    final newTicket = TicketModel(
+    final ticketId = const Uuid().v4();
+    final newHistory = TicketHistoryModel(
       id: const Uuid().v4(),
+      ticketId: ticketId,
+      userId: creatorId,
+      userName: creatorName,
+      action: 'dibuat',
+      message: 'Tiket berhasil dibuat oleh $creatorName',
+      createdAt: DateTime.now(),
+    );
+    final newTicket = TicketModel(
+      id: ticketId,
       title: title,
       description: description,
-      status: 'pending',
+      status: 'open',
       priority: priority,
       creatorId: creatorId,
       creatorName: creatorName,
       imagePath: imagePath,
       createdAt: DateTime.now(),
       comments: [],
+      history: [newHistory],
     );
     _tickets.add(newTicket);
     await _saveToStorage();
@@ -113,7 +175,44 @@ class TicketMockDataSource {
     await Future.delayed(const Duration(seconds: 1));
     final index = _tickets.indexWhere((t) => t.id == id);
     if (index >= 0) {
-      final updated = _tickets[index].copyWithModel(status: status, assigneeId: assigneeId, assigneeName: assigneeName);
+      final existing = _tickets[index];
+      final List<TicketHistoryModel> updatedHistory = List.from(existing.history);
+      
+      String? newAssigneeId = assigneeId ?? existing.assigneeId;
+      String? newAssigneeName = assigneeName ?? existing.assigneeName;
+      
+      // Jika penugasan berubah
+      if (assigneeId != null && assigneeId != existing.assigneeId) {
+        updatedHistory.add(TicketHistoryModel(
+          id: const Uuid().v4(),
+          ticketId: id,
+          userId: assigneeId,
+          userName: assigneeName ?? 'Petugas',
+          action: 'ditugaskan',
+          message: 'Tiket ditugaskan kepada ${assigneeName ?? 'Petugas'}',
+          createdAt: DateTime.now(),
+        ));
+      }
+      
+      // Jika status berubah
+      if (status != existing.status) {
+        updatedHistory.add(TicketHistoryModel(
+          id: const Uuid().v4(),
+          ticketId: id,
+          userId: assigneeId ?? 'system',
+          userName: assigneeName ?? 'System',
+          action: 'status_diubah',
+          message: 'Status tiket diubah dari ${existing.status.toUpperCase()} menjadi ${status.toUpperCase()}',
+          createdAt: DateTime.now(),
+        ));
+      }
+      
+      final updated = existing.copyWithModel(
+        status: status, 
+        assigneeId: newAssigneeId, 
+        assigneeName: newAssigneeName,
+        history: updatedHistory,
+      );
       _tickets[index] = updated;
       await _saveToStorage();
       return updated;
@@ -126,6 +225,7 @@ class TicketMockDataSource {
     await Future.delayed(const Duration(milliseconds: 800));
     final index = _tickets.indexWhere((t) => t.id == ticketId);
     if (index >= 0) {
+      final existing = _tickets[index];
       final newComment = TicketCommentModel(
         id: const Uuid().v4(),
         ticketId: ticketId,
@@ -135,13 +235,33 @@ class TicketMockDataSource {
         createdAt: DateTime.now(),
       );
       
-      final currentComments = List<TicketCommentModel>.from(_tickets[index].comments);
-      currentComments.add(newComment);
+      final currentComments = List<TicketCommentModel>.from(existing.comments)..add(newComment);
       
-      _tickets[index] = _tickets[index].copyWithModel(comments: currentComments);
+      final List<TicketHistoryModel> updatedHistory = List.from(existing.history);
+      updatedHistory.add(TicketHistoryModel(
+        id: const Uuid().v4(),
+        ticketId: ticketId,
+        userId: userId,
+        userName: userName,
+        action: 'komentar_ditambahkan',
+        message: '$userName menambahkan komentar baru',
+        createdAt: DateTime.now(),
+      ));
+      
+      _tickets[index] = existing.copyWithModel(
+        comments: currentComments,
+        history: updatedHistory,
+      );
       await _saveToStorage();
       return newComment;
     }
     throw Exception('Ticket not found');
+  }
+
+  Future<void> deleteTicket(String id) async {
+    await _loadFromStorage();
+    await Future.delayed(const Duration(milliseconds: 500));
+    _tickets.removeWhere((t) => t.id == id);
+    await _saveToStorage();
   }
 }

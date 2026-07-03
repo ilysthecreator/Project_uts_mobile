@@ -95,6 +95,18 @@ class _CreateTicketPageState extends ConsumerState<CreateTicketPage> {
         ),
       );
       Navigator.of(context).pop();
+    } else if (mounted) {
+      final errorMsg = ref.read(ticketListNotifierProvider).errorMessage ?? 'Gagal membuat tiket';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            errorMsg,
+            style: GoogleFonts.plusJakartaSans(),
+          ),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 

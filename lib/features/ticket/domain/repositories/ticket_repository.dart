@@ -8,4 +8,5 @@ abstract class TicketRepository {
   Future<Either<Failure, Ticket>> createTicket(String title, String description, String priority, String creatorId, String creatorName, String? imagePath);
   Future<Either<Failure, Ticket>> updateTicketStatus(String id, String status, {String? assigneeId, String? assigneeName});
   Future<Either<Failure, TicketComment>> addComment(String ticketId, String userId, String userName, String message);
+  Future<Either<Failure, void>> deleteTicket(String id);
 }

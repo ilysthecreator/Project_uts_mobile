@@ -12,6 +12,7 @@ import 'package:project_uts/features/notification/presentation/pages/notificatio
 import '../../../../core/services/report_service.dart';
 import 'profile_page.dart';
 import 'report_preview_page.dart';
+import '../../../auth/presentation/pages/user_management_page.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -181,9 +182,9 @@ class DashboardSummaryView extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final totalTickets = ticketState.tickets.length;
-    final pendingTickets = ticketState.tickets.where((t) => t.status == 'pending').length;
-    final activeTickets = ticketState.tickets.where((t) => t.status == 'proses').length;
-    final completedTickets = ticketState.tickets.where((t) => t.status == 'selesai').length;
+    final pendingTickets = ticketState.tickets.where((t) => t.status == 'open' || t.status == 'assign').length;
+    final activeTickets = ticketState.tickets.where((t) => t.status == 'on progress').length;
+    final completedTickets = ticketState.tickets.where((t) => t.status == 'close').length;
 
     return Scaffold(
       appBar: AppBar(
@@ -328,30 +329,82 @@ class DashboardSummaryView extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => ReportPreviewPage(tickets: ticketState.tickets),
+                        user?.role == 'admin'
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) => ReportPreviewPage(tickets: ticketState.tickets),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                                      label: Text(
+                                        'Laporan',
+                                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 13),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: AppColors.primary,
+                                        minimumSize: const Size(0, 48),
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) => const UserManagementPage(),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.people_alt_rounded, size: 16),
+                                      label: Text(
+                                        'Kelola User',
+                                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 13),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white.withOpacity(0.25),
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(0, 48),
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => ReportPreviewPage(tickets: ticketState.tickets),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                                  label: Text(
+                                    'Tinjau & Cetak Laporan',
+                                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: AppColors.primary,
+                                    minimumSize: const Size(double.infinity, 50),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  ),
                                 ),
-                              );
-                            },
-                            icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
-                            label: Text(
-                              'Tinjau & Cetak Laporan',
-                              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppColors.primary,
-                              minimumSize: const Size(double.infinity, 50),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
-                          ),
-                        ),
+                              ),
                       ],
                     ),
                   ],
@@ -701,17 +754,22 @@ class DashboardSummaryView extends ConsumerWidget {
         Color statusBgColor;
         IconData statusIcon;
         switch (ticket.status) {
-          case 'pending':
+          case 'open':
             statusColor = AppColors.statusPending;
             statusBgColor = AppColors.statusPendingBg;
             statusIcon = Icons.schedule_rounded;
             break;
-          case 'proses':
+          case 'assign':
+            statusColor = Colors.blue;
+            statusBgColor = Colors.blue.withOpacity(0.08);
+            statusIcon = Icons.assignment_ind_rounded;
+            break;
+          case 'on progress':
             statusColor = AppColors.statusProcess;
             statusBgColor = AppColors.statusProcessBg;
             statusIcon = Icons.sync_rounded;
             break;
-          case 'selesai':
+          case 'close':
             statusColor = AppColors.statusDone;
             statusBgColor = AppColors.statusDoneBg;
             statusIcon = Icons.check_circle_rounded;

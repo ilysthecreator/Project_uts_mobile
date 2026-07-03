@@ -49,6 +49,7 @@ dependencies:
   path_provider: ^2.1.5
   flutter_animate: ^4.5.2
   google_fonts: ^6.2.1
+  supabase_flutter: ^2.8.0
 
 dev_dependencies:
   flutter_test:

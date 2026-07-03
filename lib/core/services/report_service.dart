@@ -39,9 +39,9 @@ class ReportService {
             mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
             children: [
               _buildStatItem('Total', tickets.length.toString()),
-              _buildStatItem('Pending', tickets.where((t) => t.status == 'pending').length.toString()),
-              _buildStatItem('Proses', tickets.where((t) => t.status == 'proses').length.toString()),
-              _buildStatItem('Selesai', tickets.where((t) => t.status == 'selesai').length.toString()),
+              _buildStatItem('Pending', tickets.where((t) => t.status == 'open' || t.status == 'assign').length.toString()),
+              _buildStatItem('Proses', tickets.where((t) => t.status == 'on progress').length.toString()),
+              _buildStatItem('Selesai', tickets.where((t) => t.status == 'close').length.toString()),
             ],
           ),
           pw.SizedBox(height: 30),

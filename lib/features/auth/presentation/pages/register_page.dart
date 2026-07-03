@@ -230,7 +230,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                                       controller: _usernameController,
                                       style: GoogleFonts.plusJakartaSans(fontSize: 14),
                                       decoration: InputDecoration(
-                                        hintText: 'Username',
+                                        hintText: 'Email',
                                         prefixIcon: Icon(
                                           Icons.alternate_email_rounded,
                                           color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,

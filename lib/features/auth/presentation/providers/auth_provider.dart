@@ -103,9 +103,103 @@ class AuthNotifier extends Notifier<AuthState> {
     await _repository.logout();
     state = const AuthState(); // Reset back to default (no user)
   }
+
+  Future<bool> updateProfile(String name, String username) async {
+    if (state.user == null) return false;
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    final result = await _repository.updateProfile(state.user!.id, name, username);
+    
+    return result.fold(
+      (failure) {
+        state = state.copyWith(isLoading: false, errorMessage: failure.message);
+        return false;
+      },
+      (updatedUser) {
+        state = state.copyWith(isLoading: false, user: updatedUser);
+        return true;
+      },
+    );
+  }
 }
 
 // --- Notifier Provider ---
 final authNotifierProvider = NotifierProvider<AuthNotifier, AuthState>(() {
   return AuthNotifier();
+});
+
+// --- User Management State ---
+class UserManagementState {
+  final bool isLoading;
+  final List<User> users;
+  final String? errorMessage;
+
+  const UserManagementState({
+    this.isLoading = false,
+    this.users = const [],
+    this.errorMessage,
+  });
+
+  UserManagementState copyWith({
+    bool? isLoading,
+    List<User>? users,
+    String? errorMessage,
+  }) {
+    return UserManagementState(
+      isLoading: isLoading ?? this.isLoading,
+      users: users ?? this.users,
+      errorMessage: errorMessage,
+    );
+  }
+}
+
+// --- User Management Notifier ---
+class UserManagementNotifier extends Notifier<UserManagementState> {
+  late AuthRepository _repository;
+
+  @override
+  UserManagementState build() {
+    _repository = ref.watch(authRepositoryProvider);
+    Future.microtask(() => loadUsers());
+    return const UserManagementState();
+  }
+
+  Future<void> loadUsers() async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    final result = await _repository.getUsers();
+    result.fold(
+      (failure) => state = state.copyWith(isLoading: false, errorMessage: failure.message),
+      (users) => state = state.copyWith(isLoading: false, users: users),
+    );
+  }
+
+  Future<bool> toggleUserStatus(String userId, bool isActive) async {
+    state = state.copyWith(isLoading: true);
+    final result = await _repository.toggleUserActiveStatus(userId, isActive);
+    return result.fold(
+      (failure) {
+        state = state.copyWith(isLoading: false, errorMessage: failure.message);
+        return false;
+      },
+      (_) {
+        final updatedList = state.users.map((u) {
+          if (u.id == userId) {
+            return User(
+              id: u.id,
+              name: u.name,
+              username: u.username,
+              role: u.role,
+              isActive: isActive,
+            );
+          }
+          return u;
+        }).toList();
+        state = state.copyWith(isLoading: false, users: updatedList);
+        return true;
+      },
+    );
+  }
+}
+
+final userManagementNotifierProvider = NotifierProvider<UserManagementNotifier, UserManagementState>(() {
+  return UserManagementNotifier();
 });

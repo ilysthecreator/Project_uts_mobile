@@ -18,11 +18,31 @@ class TicketCommentModel extends TicketComment {
   Map<String, dynamic> toJson() => _$TicketCommentModelToJson(this);
 }
 
+@JsonSerializable()
+class TicketHistoryModel extends TicketHistory {
+  const TicketHistoryModel({
+    required super.id,
+    required super.ticketId,
+    required super.userId,
+    required super.userName,
+    required super.action,
+    required super.message,
+    required super.createdAt,
+  });
+
+  factory TicketHistoryModel.fromJson(Map<String, dynamic> json) => _$TicketHistoryModelFromJson(json);
+  Map<String, dynamic> toJson() => _$TicketHistoryModelToJson(this);
+}
+
 @JsonSerializable(explicitToJson: true)
 class TicketModel extends Ticket {
   @override
   @JsonKey(defaultValue: [])
   final List<TicketCommentModel> comments;
+
+  @override
+  @JsonKey(defaultValue: [])
+  final List<TicketHistoryModel> history;
 
   const TicketModel({
     required super.id,
@@ -37,7 +57,8 @@ class TicketModel extends Ticket {
     super.imagePath,
     required super.createdAt,
     this.comments = const [],
-  }) : super(comments: comments);
+    this.history = const [],
+  }) : super(comments: comments, history: history);
 
   factory TicketModel.fromJson(Map<String, dynamic> json) => _$TicketModelFromJson(json);
   @override
@@ -49,6 +70,7 @@ class TicketModel extends Ticket {
     String? assigneeId,
     String? assigneeName,
     List<TicketCommentModel>? comments,
+    List<TicketHistoryModel>? history,
   }) {
     return TicketModel(
       id: id,
@@ -63,6 +85,7 @@ class TicketModel extends Ticket {
       imagePath: imagePath,
       createdAt: createdAt,
       comments: comments ?? this.comments,
+      history: history ?? this.history,
     );
   }
 }

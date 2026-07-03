@@ -3,9 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../ticket/presentation/providers/ticket_provider.dart';
+import '../../../ticket/presentation/pages/create_ticket_page.dart';
 import '../providers/theme_provider.dart';
+import 'setting_page.dart';
+import '../../../auth/presentation/pages/user_management_page.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -17,12 +21,69 @@ class ProfilePage extends ConsumerWidget {
     final ticketState = ref.watch(ticketListNotifierProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final totalTickets = ticketState.tickets.length;
-    final completedTickets = ticketState.tickets.where((t) => t.status == 'selesai').length;
-    final pendingTickets = ticketState.tickets.where((t) => t.status == 'pending').length;
+    // ─── Role-Based Stats & Labels ───────────────────
+    String totalLabel = 'Total';
+    String completedLabel = 'Selesai';
+    String pendingLabel = 'Pending';
+    Color pendingColor = AppColors.statusPending;
+
+    int totalTickets = 0;
+    int completedTickets = 0;
+    int pendingTickets = 0;
+
+    if (user?.role == 'admin') {
+      totalLabel = 'Total Tiket';
+      completedLabel = 'Selesai';
+      pendingLabel = 'Pending';
+      pendingColor = AppColors.statusPending;
+
+      totalTickets = ticketState.tickets.length;
+      completedTickets = ticketState.tickets.where((t) => t.status == 'close').length;
+      pendingTickets = ticketState.tickets.where((t) => t.status == 'open' || t.status == 'assign').length;
+    } else if (user?.role == 'helpdesk') {
+      totalLabel = 'Ditugaskan';
+      completedLabel = 'Selesai';
+      pendingLabel = 'Proses';
+      pendingColor = AppColors.statusProcess;
+
+      final helpdeskTickets = ticketState.tickets.where((t) => t.assigneeId == user?.id).toList();
+      totalTickets = helpdeskTickets.length;
+      completedTickets = helpdeskTickets.where((t) => t.status == 'close').length;
+      pendingTickets = helpdeskTickets.where((t) => t.status == 'on progress').length;
+    } else {
+      totalLabel = 'Tiket Saya';
+      completedLabel = 'Selesai';
+      pendingLabel = 'Pending';
+      pendingColor = AppColors.statusPending;
+
+      final userTickets = ticketState.tickets.where((t) => t.creatorId == user?.id).toList();
+      totalTickets = userTickets.length;
+      completedTickets = userTickets.where((t) => t.status == 'close').length;
+      pendingTickets = userTickets.where((t) => t.status == 'open' || t.status == 'assign').length;
+    }
+
+    // ─── Role-Based Colors & Badges ──────────────────
+    Gradient avatarGradient;
+    Color badgeColor;
+    String roleText;
+
+    if (user?.role == 'admin') {
+      avatarGradient = AppColors.premiumGradient;
+      badgeColor = AppColors.primary;
+      roleText = 'ADMINISTRATOR';
+    } else if (user?.role == 'helpdesk') {
+      avatarGradient = AppColors.successGradient;
+      badgeColor = AppColors.success;
+      roleText = 'HELPDESK SUPPORT';
+    } else {
+      avatarGradient = AppColors.warmGradient;
+      badgeColor = AppColors.accent;
+      roleText = 'PELAPOR UTAMA';
+    }
 
     return Scaffold(
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
             // ─── Header ─────────────────────────────
@@ -33,9 +94,9 @@ class ProfilePage extends ConsumerWidget {
                 Container(
                   height: 200,
                   width: double.infinity,
-                  decoration: const BoxDecoration(
-                    gradient: AppColors.premiumGradient,
-                    borderRadius: BorderRadius.only(
+                  decoration: BoxDecoration(
+                    gradient: avatarGradient,
+                    borderRadius: const BorderRadius.only(
                       bottomLeft: Radius.circular(36),
                       bottomRight: Radius.circular(36),
                     ),
@@ -95,7 +156,7 @@ class ProfilePage extends ConsumerWidget {
                         height: 88,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: AppColors.primaryGradient,
+                          gradient: avatarGradient,
                         ),
                         child: Center(
                           child: Text(
@@ -136,7 +197,7 @@ class ProfilePage extends ConsumerWidget {
                             ),
                             child: const Icon(Icons.edit_outlined, color: Colors.white, size: 18),
                           ),
-                          onPressed: () {},
+                          onPressed: () => _showEditProfileBottomSheet(context, ref, user),
                         ),
                       ],
                     ),
@@ -174,13 +235,13 @@ class ProfilePage extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(isDark ? 0.15 : 0.08),
+                    color: badgeColor.withOpacity(isDark ? 0.15 : 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    user?.role.toUpperCase() ?? 'USER',
+                    roleText,
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppColors.primary,
+                      color: badgeColor,
                       fontWeight: FontWeight.w700,
                       fontSize: 11,
                       letterSpacing: 1.5,
@@ -207,11 +268,11 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    _buildStatItem('Total', totalTickets.toString(), AppColors.primary, isDark),
+                    _buildStatItem(totalLabel, totalTickets.toString(), AppColors.primary, isDark),
                     _buildDivider(isDark),
-                    _buildStatItem('Selesai', completedTickets.toString(), AppColors.statusDone, isDark),
+                    _buildStatItem(completedLabel, completedTickets.toString(), AppColors.success, isDark),
                     _buildDivider(isDark),
-                    _buildStatItem('Pending', pendingTickets.toString(), AppColors.statusPending, isDark),
+                    _buildStatItem(pendingLabel, pendingTickets.toString(), pendingColor, isDark),
                   ],
                 ),
               ),
@@ -219,14 +280,14 @@ class ProfilePage extends ConsumerWidget {
 
             const SizedBox(height: 28),
 
-            // ─── Settings ───────────────────────────
+            // ─── Menu Utama ──────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'PENGATURAN',
+                    'MENU UTAMA',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -241,72 +302,80 @@ class ProfilePage extends ConsumerWidget {
                     isDark: isDark,
                     items: [
                       _buildSettingsItem(
-                        icon: Icons.dark_mode_outlined,
-                        title: 'Mode Gelap',
+                        icon: Icons.settings_outlined,
+                        title: 'Pengaturan Aplikasi',
                         isDark: isDark,
-                        trailing: Switch.adaptive(
-                          value: themeMode == ThemeMode.dark,
-                          onChanged: (value) =>
-                              ref.read(themeNotifierProvider.notifier).toggleTheme(),
-                          activeColor: AppColors.primary,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const SettingPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      if (user?.role == 'admin') ...[
+                        Divider(
+                          height: 1,
+                          indent: 56,
+                          color: isDark ? AppColors.borderDark : AppColors.dividerLight,
                         ),
-                      ),
-                      Divider(
-                        height: 1,
-                        indent: 56,
-                        color: isDark ? AppColors.borderDark : AppColors.dividerLight,
-                      ),
-                      _buildSettingsItem(
-                        icon: Icons.language_rounded,
-                        title: 'Bahasa',
-                        isDark: isDark,
-                        trailing: Text(
-                          'Indonesia',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
-                            fontSize: 13,
-                          ),
+                        _buildSettingsItem(
+                          icon: Icons.people_outline_rounded,
+                          title: 'Kelola Pengguna',
+                          isDark: isDark,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const UserManagementPage(),
+                              ),
+                            );
+                          },
                         ),
-                      ),
+                      ],
+                      if (user?.role == 'helpdesk') ...[
+                        Divider(
+                          height: 1,
+                          indent: 56,
+                          color: isDark ? AppColors.borderDark : AppColors.dividerLight,
+                        ),
+                        _buildSettingsItem(
+                          icon: Icons.assignment_outlined,
+                          title: 'Daftar Tugas Tiket',
+                          isDark: isDark,
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Silakan buka tab "Tiket" di bagian bawah untuk melihat daftar tugas Anda.',
+                                  style: GoogleFonts.plusJakartaSans(),
+                                ),
+                                backgroundColor: AppColors.primary,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                      if (user?.role == 'user') ...[
+                        Divider(
+                          height: 1,
+                          indent: 56,
+                          color: isDark ? AppColors.borderDark : AppColors.dividerLight,
+                        ),
+                        _buildSettingsItem(
+                          icon: Icons.add_circle_outline_rounded,
+                          title: 'Buat Tiket Baru',
+                          isDark: isDark,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const CreateTicketPage(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ],
                   ).animate().fadeIn(delay: 700.ms).slideX(begin: 0.05),
-
-                  const SizedBox(height: 20),
-
-                  Text(
-                    'DUKUNGAN',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
-                      letterSpacing: 1.5,
-                    ),
-                  ).animate().fadeIn(delay: 800.ms),
-                  const SizedBox(height: 12),
-
-                  _buildSettingsCard(
-                    context,
-                    isDark: isDark,
-                    items: [
-                      _buildSettingsItem(
-                        icon: Icons.help_outline_rounded,
-                        title: 'Pusat Bantuan',
-                        isDark: isDark,
-                        onTap: () {},
-                      ),
-                      Divider(
-                        height: 1,
-                        indent: 56,
-                        color: isDark ? AppColors.borderDark : AppColors.dividerLight,
-                      ),
-                      _buildSettingsItem(
-                        icon: Icons.info_outline_rounded,
-                        title: 'Tentang Aplikasi',
-                        isDark: isDark,
-                        onTap: () {},
-                      ),
-                    ],
-                  ).animate().fadeIn(delay: 900.ms).slideX(begin: 0.05),
 
                   const SizedBox(height: 28),
 
@@ -392,7 +461,7 @@ class ProfilePage extends ConsumerWidget {
                   // Version info
                   Center(
                     child: Text(
-                      'E-Ticket Helpdesk v1.0.0',
+                      'E-Ticket Helpdesk v2.0.0',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 11,
                         color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
@@ -498,6 +567,157 @@ class ProfilePage extends ConsumerWidget {
             size: 20,
           ),
       onTap: onTap,
+    );
+  }
+
+  // ─── Edit Profile Bottom Sheet ────────────────────
+  void _showEditProfileBottomSheet(BuildContext context, WidgetRef ref, User? user) {
+    if (user == null) return;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final nameController = TextEditingController(text: user.name);
+    final usernameController = TextEditingController(text: user.username);
+    final formKey = GlobalKey<FormState>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      backgroundColor: isDark ? AppColors.cardDark : Colors.white,
+      builder: (context) => Padding(
+        padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Edit Profil',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Name Input
+              Text(
+                'NAMA LENGKAP',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: nameController,
+                style: GoogleFonts.plusJakartaSans(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Nama Lengkap',
+                  filled: true,
+                  fillColor: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceElevatedLight,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                validator: (value) => value == null || value.trim().isEmpty ? 'Nama tidak boleh kosong' : null,
+              ),
+              const SizedBox(height: 18),
+              
+              // Username Input
+              Text(
+                'USERNAME',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: usernameController,
+                style: GoogleFonts.plusJakartaSans(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Username',
+                  filled: true,
+                  fillColor: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceElevatedLight,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                validator: (value) => value == null || value.trim().isEmpty ? 'Username tidak boleh kosong' : null,
+              ),
+              const SizedBox(height: 28),
+              
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      if (formKey.currentState?.validate() ?? false) {
+                        final success = await ref
+                            .read(authNotifierProvider.notifier)
+                            .updateProfile(nameController.text.trim(), usernameController.text.trim());
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                success ? 'Profil berhasil diperbarui!' : 'Gagal memperbarui profil',
+                                style: GoogleFonts.plusJakartaSans(),
+                              ),
+                              backgroundColor: success ? AppColors.success : AppColors.error,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      minimumSize: const Size(double.infinity, 52),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: Text(
+                      'Simpan Perubahan',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

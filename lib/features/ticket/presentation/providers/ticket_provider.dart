@@ -3,12 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/ticket.dart';
 import '../../domain/repositories/ticket_repository.dart';
-import '../../data/datasources/ticket_mock_datasource.dart';
+import '../../data/datasources/ticket_remote_datasource.dart';
 import '../../data/repositories/ticket_repository_impl.dart';
+import '../../../notification/presentation/providers/notification_provider.dart';
 
 // --- Injection Providers ---
-final ticketDataSourceProvider = Provider<TicketMockDataSource>((ref) {
-  return TicketMockDataSource(); // Singleton
+final ticketDataSourceProvider = Provider<TicketRemoteDataSource>((ref) {
+  return TicketRemoteDataSourceImpl();
 });
 
 final ticketRepositoryProvider = Provider<TicketRepository>((ref) {
@@ -22,7 +23,7 @@ class TicketListState {
   final bool isLoading;
   final List<Ticket> tickets;
   final String? errorMessage;
-  final String filterStatus; // 'semua', 'pending', 'proses', 'selesai'
+  final String filterStatus; // 'semua', 'open', 'assign', 'on progress', 'close'
   final String searchQuery;
   final bool isDescending;
 
@@ -124,6 +125,16 @@ class TicketListNotifier extends Notifier<TicketListState> {
       (newTicket) {
         final updatedList = List<Ticket>.from(state.tickets)..insert(0, newTicket);
         state = state.copyWith(isLoading: false, tickets: updatedList);
+        
+        // Pemicu Notifikasi Dinamis (Kirim ke pembuat tiket bahwa tiket berhasil dibuat)
+        ref.read(notificationNotifierProvider.notifier).addNotification(
+          title: 'Tiket Baru Berhasil Dibuat',
+          body: 'Tiket #${newTicket.id.substring(0, 8).toUpperCase()} - ${newTicket.title} telah berhasil dibuat.',
+          type: 'created',
+          ticketId: newTicket.id,
+          userId: newTicket.creatorId,
+        );
+        
         return true;
       },
     );
@@ -147,6 +158,28 @@ class TicketListNotifier extends Notifier<TicketListState> {
         } else {
            state = state.copyWith(isLoading: false);
         }
+        
+        // Pemicu Notifikasi Dinamis (Kirim ke pembuat tiket)
+        final ticket = state.tickets.firstWhere((t) => t.id == id);
+        ref.read(notificationNotifierProvider.notifier).addNotification(
+          title: 'Status Tiket Diperbarui',
+          body: 'Tiket #${id.substring(0, 8).toUpperCase()} diubah statusnya menjadi ${status.toUpperCase()}',
+          type: 'status',
+          ticketId: id,
+          userId: ticket.creatorId,
+        );
+        
+        // Pemicu Notifikasi ke Petugas (Jika ada penugasan baru)
+        if (assigneeId != null) {
+          ref.read(notificationNotifierProvider.notifier).addNotification(
+            title: 'Penugasan Tiket Baru',
+            body: 'Anda telah ditugaskan untuk menangani Tiket #${id.substring(0, 8).toUpperCase()} - ${ticket.title}.',
+            type: 'status',
+            ticketId: id,
+            userId: assigneeId,
+          );
+        }
+        
         return true;
       },
     );
@@ -166,12 +199,55 @@ class TicketListNotifier extends Notifier<TicketListState> {
         if (index >= 0) {
           final ticket = state.tickets[index];
           final currentComments = List<TicketComment>.from(ticket.comments)..add(newComment);
+          final currentHistory = List<TicketHistory>.from(ticket.history)
+            ..add(TicketHistory(
+              id: newComment.id,
+              ticketId: ticketId,
+              userId: userId,
+              userName: userName,
+              action: 'komentar_ditambahkan',
+              message: '$userName menambahkan komentar baru',
+              createdAt: newComment.createdAt,
+            ));
           final newList = List<Ticket>.from(state.tickets);
-          newList[index] = ticket.copyWith(comments: currentComments);
+          newList[index] = ticket.copyWith(
+            comments: currentComments,
+            history: currentHistory,
+          );
           state = state.copyWith(isLoading: false, tickets: newList);
+          
+          // Pemicu Notifikasi Dinamis (Kirim ke pihak lawan)
+          final targetUserId = userId == ticket.creatorId ? ticket.assigneeId : ticket.creatorId;
+          if (targetUserId != null) {
+            ref.read(notificationNotifierProvider.notifier).addNotification(
+              title: 'Komentar Baru',
+              body: '$userName mengomentari tiket #${ticketId.substring(0, 8).toUpperCase()}',
+              type: 'comment',
+              ticketId: ticketId,
+              userId: targetUserId,
+            );
+          }
         } else {
           state = state.copyWith(isLoading: false);
         }
+
+        return true;
+      },
+    );
+  }
+
+  Future<bool> deleteTicket(String id) async {
+    state = state.copyWith(isLoading: true);
+    final result = await _repository.deleteTicket(id);
+    
+    return result.fold(
+      (failure) {
+        state = state.copyWith(isLoading: false, errorMessage: failure.message);
+        return false;
+      },
+      (_) {
+        final newList = state.tickets.where((t) => t.id != id).toList();
+        state = state.copyWith(isLoading: false, tickets: newList);
         return true;
       },
     );

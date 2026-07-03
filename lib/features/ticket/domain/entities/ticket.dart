@@ -16,6 +16,26 @@ class TicketComment {
   });
 }
 
+class TicketHistory {
+  final String id;
+  final String ticketId;
+  final String userId;
+  final String userName;
+  final String action; // 'dibuat', 'status_diubah', 'ditugaskan', 'komentar_ditambahkan'
+  final String message; // Pesan detail aktivitas
+  final DateTime createdAt;
+
+  const TicketHistory({
+    required this.id,
+    required this.ticketId,
+    required this.userId,
+    required this.userName,
+    required this.action,
+    required this.message,
+    required this.createdAt,
+  });
+}
+
 class Ticket {
   final String id;
   final String title;
@@ -29,6 +49,7 @@ class Ticket {
   final String? imagePath;
   final DateTime createdAt;
   final List<TicketComment> comments;
+  final List<TicketHistory> history;
 
   const Ticket({
     required this.id,
@@ -43,6 +64,7 @@ class Ticket {
     this.imagePath,
     required this.createdAt,
     this.comments = const [],
+    this.history = const [],
   });
 
   Ticket copyWith({
@@ -51,6 +73,7 @@ class Ticket {
     String? assigneeId,
     String? assigneeName,
     List<TicketComment>? comments,
+    List<TicketHistory>? history,
   }) {
     return Ticket(
       id: id,
@@ -65,6 +88,7 @@ class Ticket {
       imagePath: imagePath,
       createdAt: createdAt,
       comments: comments ?? this.comments,
+      history: history ?? this.history,
     );
   }
 }

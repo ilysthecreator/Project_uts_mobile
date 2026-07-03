@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'core/theme/app_theme.dart';
+import 'core/constants/supabase_constants.dart';
 import 'features/dashboard/presentation/providers/theme_provider.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/auth/presentation/pages/splash_page.dart';
@@ -10,6 +12,12 @@ import 'features/dashboard/presentation/pages/dashboard_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Inisialisasi Supabase
+  await Supabase.initialize(
+    url: SupabaseConstants.url,
+    publishableKey: SupabaseConstants.anonKey,
+  );
   
   // Inisialisasi SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
