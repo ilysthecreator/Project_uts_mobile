@@ -122,7 +122,11 @@ class NotificationNotifier extends Notifier<NotificationState> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'notifications',
-          filter: 'user_id=eq.$userId',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
           callback: (payload) {
             final eventType = payload.eventType;
             if (eventType == PostgresChangeEvent.insert) {
