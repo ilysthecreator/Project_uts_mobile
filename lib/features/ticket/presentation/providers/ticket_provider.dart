@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/ticket.dart';
@@ -83,12 +84,62 @@ class TicketListState {
 // --- Notifiers ---
 class TicketListNotifier extends Notifier<TicketListState> {
   late TicketRepository _repository;
+  final SupabaseClient _supabaseClient = Supabase.instance.client;
+  RealtimeChannel? _ticketsRealtimeChannel;
 
   @override
   TicketListState build() {
     _repository = ref.watch(ticketRepositoryProvider);
+    
+    // Subscribe to realtime database changes for tickets
+    _subscribeToTicketsRealtime();
+
+    ref.onDispose(() {
+      _unsubscribeFromTicketsRealtime();
+    });
+
     Future.microtask(() => loadTickets());
     return const TicketListState();
+  }
+
+  void _subscribeToTicketsRealtime() {
+    _unsubscribeFromTicketsRealtime();
+
+    // Dengarkan perubahan pada tabel tickets dan ticket_comments agar UI list & detail terupdate live
+    _ticketsRealtimeChannel = _supabaseClient
+        .channel('public:tickets_and_comments_realtime')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'tickets',
+          callback: (payload) {
+            loadTickets();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'ticket_comments',
+          callback: (payload) {
+            loadTickets();
+            // Invalidate detail tiket yang aktif agar obrolan komentar langsung muncul
+            if (payload.newRecord.isNotEmpty) {
+              final ticketId = payload.newRecord['ticket_id'] as String?;
+              if (ticketId != null) {
+                ref.invalidate(ticketDetailProvider(ticketId));
+              }
+            }
+          },
+        );
+
+    _ticketsRealtimeChannel?.subscribe();
+  }
+
+  void _unsubscribeFromTicketsRealtime() {
+    if (_ticketsRealtimeChannel != null) {
+      _supabaseClient.removeChannel(_ticketsRealtimeChannel!);
+      _ticketsRealtimeChannel = null;
+    }
   }
 
   Future<void> loadTickets() async {

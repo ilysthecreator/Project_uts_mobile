@@ -940,11 +940,11 @@ class TicketDetailPage extends ConsumerWidget {
 
   void _showAssignDialog(BuildContext context, WidgetRef ref, String id) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final responders = [
-      {'id': 'h1', 'name': 'Budi - Networking'},
-      {'id': 'h2', 'name': 'Siti - Software'},
-      {'id': 'h3', 'name': 'Agus - Hardware'},
-    ];
+
+    // Trigger load user terbaru dari database agar data yang tampil selalu aktual
+    Future.microtask(() {
+      ref.read(userManagementNotifierProvider.notifier).loadUsers();
+    });
 
     showModalBottomSheet(
       context: context,
@@ -952,93 +952,128 @@ class TicketDetailPage extends ConsumerWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       backgroundColor: isDark ? AppColors.cardDark : Colors.white,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.borderDark : AppColors.borderLight,
-                  borderRadius: BorderRadius.circular(2),
+      builder: (context) => Consumer(
+        builder: (context, ref, child) {
+          final userState = ref.watch(userManagementNotifierProvider);
+          final helpdesks = userState.users
+              .where((u) => u.role == 'helpdesk' && u.isActive)
+              .toList();
+
+          if (userState.isLoading) {
+            return SizedBox(
+              height: 250,
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: AppColors.primary,
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Tugaskan Petugas',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Pilih petugas penanggung jawab',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                color: isDark ? AppColors.textDarkSecondary : AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ...responders.map((r) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceElevatedLight,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      r['name']![0],
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
-                title: Text(
-                  r['name']!,
+                const SizedBox(height: 20),
+                Text(
+                  'Tugaskan Petugas',
                   style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
                     color: isDark ? Colors.white : AppColors.textPrimary,
                   ),
                 ),
-                trailing: Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
+                const SizedBox(height: 6),
+                Text(
+                  'Pilih petugas penanggung jawab',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    color: isDark ? AppColors.textDarkSecondary : AppColors.textSecondary,
+                  ),
                 ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                onTap: () {
-                  ref.read(ticketListNotifierProvider.notifier).updateStatus(
-                    id, 'on progress',
-                    assigneeId: r['id'],
-                    assigneeName: r['name'],
-                  );
-                  Navigator.pop(context);
-                  ref.invalidate(ticketDetailProvider(id));
-                },
-              ),
-            )),
-            const SizedBox(height: 12),
-          ],
-        ),
+                const SizedBox(height: 20),
+                if (helpdesks.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Text(
+                        'Tidak ada petugas helpdesk aktif',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          color: isDark ? AppColors.textDarkSecondary : AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  ...helpdesks.map((h) => Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.surfaceElevatedDark : AppColors.surfaceElevatedLight,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Center(
+                              child: Text(
+                                h.name.isNotEmpty ? h.name[0].toUpperCase() : 'H',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            h.name,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: isDark ? Colors.white : AppColors.textPrimary,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: isDark ? AppColors.textDarkSecondary : AppColors.textTertiary,
+                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          onTap: () {
+                            ref.read(ticketListNotifierProvider.notifier).updateStatus(
+                                  id,
+                                  'on progress',
+                                  assigneeId: h.id,
+                                  assigneeName: h.name,
+                                );
+                            Navigator.pop(context);
+                            ref.invalidate(ticketDetailProvider(id));
+                          },
+                        ),
+                      )),
+                const SizedBox(height: 12),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

@@ -83,20 +83,90 @@ class NotificationState {
 
 class NotificationNotifier extends Notifier<NotificationState> {
   final SupabaseClient _supabaseClient = Supabase.instance.client;
+  RealtimeChannel? _realtimeChannel;
 
   @override
   NotificationState build() {
-    // Listen to Auth State changes to reload notifications
+    // Listen to Auth State changes to reload notifications & subscription
     ref.listen(authNotifierProvider, (previous, next) {
       if (next.user != null) {
         _loadFromDatabase();
+        _subscribeToNotifications(next.user!.id);
       } else {
+        _unsubscribeFromNotifications();
         state = const NotificationState();
       }
     });
 
-    Future.microtask(() => _loadFromDatabase());
+    ref.onDispose(() {
+      _unsubscribeFromNotifications();
+    });
+
+    final user = ref.read(authNotifierProvider).user;
+    if (user != null) {
+      Future.microtask(() {
+        _loadFromDatabase();
+        _subscribeToNotifications(user.id);
+      });
+    }
+
     return const NotificationState();
+  }
+
+  void _subscribeToNotifications(String userId) {
+    _unsubscribeFromNotifications();
+
+    _realtimeChannel = _supabaseClient
+        .channel('public:notifications:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'notifications',
+          filter: 'user_id=eq.$userId',
+          callback: (payload) {
+            final eventType = payload.eventType;
+            if (eventType == PostgresChangeEvent.insert) {
+              if (payload.newRecord.isNotEmpty) {
+                try {
+                  final newNotif = AppNotification.fromJson(payload.newRecord);
+                  final exists = state.notifications.any((n) => n.id == newNotif.id);
+                  if (!exists) {
+                    final updatedList = List<AppNotification>.from(state.notifications)
+                      ..insert(0, newNotif);
+                    state = state.copyWith(notifications: updatedList);
+                  }
+                } catch (_) {}
+              }
+            } else if (eventType == PostgresChangeEvent.update) {
+              if (payload.newRecord.isNotEmpty) {
+                try {
+                  final updatedNotif = AppNotification.fromJson(payload.newRecord);
+                  final updatedList = state.notifications.map((n) {
+                    return n.id == updatedNotif.id ? updatedNotif : n;
+                  }).toList();
+                  state = state.copyWith(notifications: updatedList);
+                } catch (_) {}
+              }
+            } else if (eventType == PostgresChangeEvent.delete) {
+              if (payload.oldRecord.isNotEmpty) {
+                final deletedId = payload.oldRecord['id'];
+                if (deletedId != null) {
+                  final updatedList = state.notifications.where((n) => n.id != deletedId).toList();
+                  state = state.copyWith(notifications: updatedList);
+                }
+              }
+            }
+          },
+        );
+
+    _realtimeChannel?.subscribe();
+  }
+
+  void _unsubscribeFromNotifications() {
+    if (_realtimeChannel != null) {
+      _supabaseClient.removeChannel(_realtimeChannel!);
+      _realtimeChannel = null;
+    }
   }
 
   Future<void> _loadFromDatabase() async {
